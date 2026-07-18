@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fretboard Scale & Chord Visualizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --accent-color: #f1f5f9;
+      --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .container {
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      padding: 36px;
+      width: 100%;
+      max-width: 1360px;
+      box-sizing: border-box;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    header {
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+    }
+
+    h2 {
+      font-size: 32px;
+      font-weight: 800;
+      margin: 0 0 6px 0;
+      color: var(--text-main);
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .controls-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      background: #fafafa;
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid var(--border-color);
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    select, input[type="number"] {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--text-main);
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 40px;
+    }
+
+    input[type="number"] {
+      background-image: none;
+      padding-right: 16px;
+    }
+
+    select:hover, input[type="number"]:hover {
+      border-color: #cbd5e1;
+    }
+
+    select:focus, input[type="number"]:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: flex-start;
+      border-top: 1px solid var(--border-color);
+      padding-top: 20px;
+    }
+
+    button {
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    button:hover {
+      background-color: var(--accent-color);
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.active {
+      background-color: #eff6ff;
+      color: var(--primary-color);
+      border-color: #bfdbfe;
+    }
+
+    .canvas-card {
+      background: #fdfdfc;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: auto;
+      box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h2 id="title">A Major Scale</h2>
+      <p class="subtitle">Interactive Fretboard Visualizer</p>
+    </header>
+    <div class="controls-wrapper">
+      <div class="controls-grid">
+        <div class="control-group">
+          <label for="key">Key</label>
+          <select id="key"></select>
+        </div>
+        <div class="control-group">
+          <label for="scale">Scale</label>
+          <select id="scale"></select>
+        </div>
+        <div class="control-group">
+          <label for="chord">Chord Shape</label>
+          <select id="chord"></select>
+        </div>
+        <div class="control-group">
+          <label for="frets">Frets</label>
+          <input id="frets" type="number" min="12" max="24" value="12">
+        </div>
+      </div>
+      <div class="btn-group">
+        <button id="flipH">Flip Horizontal</button>
+        <button id="flipV">Flip Vertical</button>
+        <button id="toggleC">Only Chords</button>
+      </div>
+    </div>
+    <div class="canvas-card">
+      <canvas id="board" width="1300" height="350"></canvas>
+    </div>
+  </div>
+  <script>
+  (function(){
+    const notes = ['A','A#','B','C','C#','D','D#','E','F','F#','G','G#'],
+          tuning = ['E','A','D','G','B','E'],
+          intervals = { Major:[0,2,4,5,7,9,11], Minor:[0,2,3,5,7,8,10],
+                        'Major Pentatonic':[0,2,4,7,9], 'Minor Pentatonic':[0,3,5,7,10] },
+          shapes = { Major:['C','A','G','E','D'], Minor:['A (m)','E (m)','D (m)'] },
+          barreOffset = { C:3,A:0,G:3,E:0,D:2,'A (m)':0,'E (m)':0,'D (m)':2 },
+          barreStrings = { C:5,A:5,G:6,E:6,D:4,'A (m)':5,'E (m)':6,'D (m)':4 },
+          placements = {
+            C:[['B',2],['G',3],['D',4]],
+            A:[['B',3],['G',3],['D',3]],
+            G:[['E',4,'high'],['B',4],['E',4,'low'],['A',2]],
+            E:[['E',3,'low'],['A',3],['D',2]],
+            D:[['E',3,'high'],['G',3],['B',4]],
+            'D (m)':[ ['E',2,'high'],['G',3],['B',4] ],
+            'A (m)':[ ['D',3],['G',3],['B',2] ],
+            'E (m)':[ ['A',3],['D',3] ]
+          };
+    let flipH=false, flipV=false, chordsOnly=false;
+    const $=id=>document.getElementById(id);
+
+    function init(){
+      notes.forEach(n=>$('key').add(new Option(n,n)));
+      Object.keys(intervals).forEach(m=>$('scale').add(new Option(m,m)));
+      $('scale').addEventListener('change',updateChords);
+      ['key','scale','chord','frets'].forEach(id=>$(id).addEventListener('change',draw));
+      $('flipH').onclick=()=>{ flipH=!flipH; draw(); };
+      $('flipV').onclick=()=>{ flipV=!flipV; draw(); };
+      $('toggleC').onclick=()=>{ chordsOnly=!chordsOnly; $('toggleC').textContent = chordsOnly?'Show All':'Only Chords'; draw(); };
+      $('key').value='A'; $('scale').value='Major'; updateChords(); draw();
+    }
+
+    function updateChords(){
+      const mode=$('scale').value;
+      $('chord').innerHTML='';
+      shapes[mode==='Major'?'Major':'Minor'].forEach(s=>$('chord').add(new Option(s,s)));
+    }
+
+    function getScale(key,mode){
+      const root=notes.indexOf(key);
+      return intervals[mode].map(i=>notes[(root+i)%12]);
+    }
+
+    function getMatrix(frets){
+      return tuning.map(s=>{
+        const start=notes.indexOf(s);
+        return Array.from({length:frets+1},(_,i)=>notes[(start+i)%12]);
+      });
+    }
+
+    function findFret(o,t){
+      const diff=(notes.indexOf(t)-notes.indexOf(o)+12)%12;
+      return diff||12;
+    }
+
+    function draw(){
+      const c=$('board'),ctx=c.getContext('2d');
+      const key=$('key').value, mode=$('scale').value, frets=+$('frets').value;
+      const scale=getScale(key,mode), tri=(mode==='Major'||mode==='Minor')?[scale[0],scale[2],scale[4]]:[];
+      $('title').textContent=`${key} ${mode} Scale`;
+      
+      // Update button visual states
+      $('flipH').classList.toggle('active', flipH);
+      $('flipV').classList.toggle('active', flipV);
+      $('toggleC').classList.toggle('active', chordsOnly);
+
+      const ml=flipH?70:100, mr=flipH?100:70,
+            fw=(c.width-ml-mr)/frets, sh=(c.height-50)/tuning.length;
+      ctx.clearRect(0,0,c.width,c.height);
+      drawFrets(ctx,ml,mr,frets,fw,c);
+      drawBarre(ctx,ml,mr,fw);
+      drawPlacements(ctx,ml,mr,fw,sh);
+      drawNotes(ctx,scale,tri,ml,mr,fw,sh,getMatrix(frets));
+    }
+
+    function drawFretboardMarkers(ctx, ml, mr, frets, fw) {
+      const markerFrets = [3, 5, 7, 9, 15, 17, 19, 21];
+      const doubleMarkerFrets = [12, 24];
+      
+      ctx.save();
+      ctx.fillStyle = '#E2E8F0';
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 1;
+      
+      markerFrets.forEach(f => {
+        if (f <= frets) {
+          const x = flipH ? ctx.canvas.width - mr - (f - 0.5) * fw : ml + (f - 0.5) * fw;
+          const y = 200;
+          ctx.beginPath();
+          ctx.arc(x, y, 6, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
+      });
+      
+      doubleMarkerFrets.forEach(f => {
+        if (f <= frets) {
+          const x = flipH ? ctx.canvas.width - mr - (f - 0.5) * fw : ml + (f - 0.5) * fw;
+          const y1 = 150;
+          const y2 = 250;
+          
+          ctx.beginPath();
+          ctx.arc(x, y1, 6, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.arc(x, y2, 6, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
+      });
+      ctx.restore();
+    }
+
+    function drawFrets(ctx,ml,mr,frets,fw,c){
+      // Fretboard background (light maple texture feel)
+      ctx.fillStyle = '#FAF6F0';
+      ctx.fillRect(ml, 50, c.width - ml - mr, c.height - 50);
+
+      // Fretboard markers
+      drawFretboardMarkers(ctx, ml, mr, frets, fw);
+
+      // Bone nut
+      const nutX = flipH?c.width-mr:ml;
+      ctx.strokeStyle = '#E2DCD3';
+      ctx.lineWidth = 8;
+      ctx.beginPath(); 
+      ctx.moveTo(nutX,50); 
+      ctx.lineTo(nutX,c.height); 
+      ctx.stroke();
+
+      // Nut shadow line
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(nutX - (flipH ? -4 : 4), 50);
+      ctx.lineTo(nutX - (flipH ? -4 : 4), c.height);
+      ctx.stroke();
+
+      // Fret lines & labels
+      ctx.font = 'bold 12px "Inter", sans-serif';
+      for(let f=1;f<=frets;f++){
+        const x=flipH?c.width-mr-f*fw:ml+f*fw;
+        
+        // Fret metal shadow
+        ctx.strokeStyle='#94A3B8'; 
+        ctx.lineWidth=2;
+        ctx.beginPath(); 
+        ctx.moveTo(x,50); 
+        ctx.lineTo(x,c.height); 
+        ctx.stroke();
+
+        // Fret metal highlight
+        ctx.strokeStyle='#FFFFFF';
+        ctx.lineWidth=1;
+        ctx.beginPath();
+        ctx.moveTo(x + 1, 50);
+        ctx.lineTo(x + 1, c.height);
+        ctx.stroke();
+
+        // Fret labels
+        ctx.fillStyle='#64748B';
+        ctx.textAlign = 'center';
+        ctx.fillText(f,flipH?c.width-mr-(f-0.5)*fw:ml+(f-0.5)*fw,30);
+      }
+
+      // Border outline for fretboard
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ml, 50);
+      ctx.lineTo(c.width - mr, 50);
+      ctx.moveTo(ml, c.height);
+      ctx.lineTo(c.width - mr, c.height);
+      ctx.stroke();
+    }
+
+    function drawBarre(ctx,ml,mr,fw){
+      const shape=$('chord').value;
+      const open = tuning[6-barreStrings[shape]];
+      let offset=barreOffset[shape] - (['D','D (m)'].includes(shape)?2:0);
+      let f0=findFret(open,$('key').value)-offset;
+      if(f0<1) f0+=12;
+      drawBarre.f0=f0;
+      const x=flipH?ctx.canvas.width-mr-(f0*fw):ml+((f0-1)*fw);
+      const h=ctx.canvas.height-50;
+      ctx.save();
+      ctx.fillStyle='rgba(37, 99, 235, 0.08)'; 
+      ctx.fillRect(x,50,fw,h);
+      ctx.strokeStyle='rgba(37, 99, 235, 0.4)'; 
+      ctx.lineWidth=2;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x,50,fw,h);
+      ctx.restore();
+    }
+
+    function drawPlacements(ctx,ml,mr,fw,sh){
+      const shape=$('chord').value;
+      (placements[shape]||[]).forEach(([str,st])=>{
+        const idx=tuning.indexOf(str);
+        const i=flipV?tuning.length-1-idx:idx;
+        const y=50+i*sh+sh/2;
+        const pos=drawBarre.f0+st-1;
+        const x=flipH?ctx.canvas.width-mr-(pos-0.5)*fw:ml+(pos-0.5)*fw;
+        const w=fw*0.8, h=sh;
+        
+        ctx.save();
+        ctx.fillStyle='rgba(37, 99, 235, 0.06)'; 
+        ctx.fillRect(x-w/2,y-h/2,w,h);
+        ctx.strokeStyle='rgba(37, 99, 235, 0.2)'; 
+        ctx.lineWidth=1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(x-w/2,y-h/2,w,h);
+        ctx.restore();
+
+        ctx.beginPath(); 
+        ctx.arc(x,y,7,0,2*Math.PI); 
+        ctx.fillStyle='#2563EB'; 
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 4;
+        ctx.fill(); 
+        ctx.strokeStyle='#FFFFFF';
+        ctx.lineWidth=2;
+        ctx.stroke();
+      });
+    }
+
+    function drawNotes(ctx,scale,tri,ml,mr,fw,sh,matrix){
+      const mat = flipV?matrix.slice().reverse():matrix;
+      mat.forEach((row,i)=>{
+        const y=50+i*sh+sh/2;
+        
+        // String gauge thickness
+        const originalIdx = flipV ? tuning.length - 1 - i : i;
+        const thickness = 4 - originalIdx * 0.6;
+        
+        // String shadow
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.08)';
+        ctx.lineWidth = thickness + 1;
+        ctx.beginPath(); 
+        ctx.moveTo(ml, y + 1); 
+        ctx.lineTo(ctx.canvas.width - mr, y + 1); 
+        ctx.stroke();
+
+        // String wire
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = thickness;
+        ctx.beginPath(); 
+        ctx.moveTo(ml, y); 
+        ctx.lineTo(ctx.canvas.width - mr, y); 
+        ctx.stroke();
+
+        // Shiny reflection on strings
+        if (thickness >= 2) {
+          ctx.strokeStyle = '#F1F5F9';
+          ctx.lineWidth = thickness * 0.3;
+          ctx.beginPath(); 
+          ctx.moveTo(ml, y - 0.5); 
+          ctx.lineTo(ctx.canvas.width - mr, y - 0.5); 
+          ctx.stroke();
+        }
+
+        row.forEach((note,f) => {
+          const isOpen = f===0;
+          if(!isOpen && (!scale.includes(note) || (chordsOnly && !tri.includes(note)))) return;
+          const x = isOpen
+            ? (flipH?ctx.canvas.width-mr+50:ml-50)
+            : (flipH?ctx.canvas.width-mr-(f-0.5)*fw:ml+(f-0.5)*fw);
+          drawMarker(ctx,note,x,y,scale,tri,isOpen);
+        });
+      });
+    }
+
+    function drawMarker(ctx,n,x,y,scale,tri,isOpen){
+      const inScale=scale.includes(n), inTri=tri.includes(n), isRoot=n===scale[0];
+      ctx.save();
+      if(inScale && (!chordsOnly || inTri)){
+        let col = isRoot?'#E11D48': n===tri[1]?'#F59E0B': inTri?'#3B82F6':'#10B981';
+        
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.15)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.fillStyle=col; 
+        ctx.beginPath(); 
+        ctx.arc(x,y,15,0,2*Math.PI); 
+        ctx.fill();
+        
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle='#FFFFFF'; 
+        ctx.lineWidth=2;
+        ctx.stroke();
+        
+        ctx.fillStyle = (col==='#F59E0B')?'#1E293B':'#FFFFFF'; 
+        ctx.textAlign='center'; 
+        ctx.font='600 13px "Inter", sans-serif'; 
+        ctx.fillText(n,x,y+4);
+      } else {
+        ctx.fillStyle='#64748B'; 
+        ctx.textAlign=flipH?'left':'right'; 
+        ctx.font='600 13px "Inter", sans-serif'; 
+        ctx.fillText(n,x,y+4);
+      }
+      ctx.restore();
+    }
+
+    document.addEventListener('DOMContentLoaded',init);
+  })();
+  </script>
+</body>
+</html>
