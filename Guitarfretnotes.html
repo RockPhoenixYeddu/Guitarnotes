@@ -87,6 +87,53 @@
       gap: 8px;
     }
 
+    .control-group > label {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      box-sizing: border-box;
+    }
+
+    .control-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+    }
+
+    .shape-all {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 12px;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+
+    .shape-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+
+    .shape-legend[hidden] {
+      display: none;
+    }
+
+    .shape-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .shape-legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+
     .control-group label {
       font-size: 11px;
       font-weight: 700;
@@ -112,6 +159,9 @@
       background-repeat: no-repeat;
       background-position: right 12px center;
       padding-right: 40px;
+      min-height: 44px;
+      box-sizing: border-box;
+      touch-action: manipulation;
     }
 
     input[type="number"] {
@@ -143,6 +193,8 @@
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 12px 24px;
+      min-width: 44px;
+      min-height: 44px;
       font-size: 14px;
       font-weight: 600;
       font-family: inherit;
@@ -153,6 +205,7 @@
       justify-content: center;
       gap: 8px;
       box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      touch-action: manipulation;
     }
 
     button:hover {
@@ -188,6 +241,55 @@
       max-width: 100%;
       height: auto;
     }
+
+    @media (max-width: 600px) {
+      body {
+        align-items: flex-start;
+        padding: 16px 12px;
+      }
+
+      .container {
+        padding: 20px;
+        gap: 20px;
+        border-radius: 12px;
+      }
+
+      .controls-wrapper {
+        padding: 16px;
+        gap: 16px;
+      }
+
+      .controls-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .control-group {
+        gap: 6px;
+      }
+
+      .btn-group {
+        gap: 8px;
+        padding-top: 16px;
+      }
+
+      .btn-group button {
+        flex: 1 1 calc(50% - 8px);
+        padding: 10px 12px;
+      }
+
+      .canvas-card {
+        justify-content: flex-start;
+        padding: 12px;
+      }
+    }
+
+    .chord-message {
+      margin: -12px 0 0;
+      color: #b91c1c;
+      font-size: 14px;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -207,7 +309,10 @@
           <select id="scale"></select>
         </div>
         <div class="control-group">
-          <label for="chord">Chord Shape</label>
+          <div class="control-heading">
+            <label for="chord">Chord Shape</label>
+            <button id="toggleAll" class="shape-all" type="button" aria-pressed="false">All</button>
+          </div>
           <select id="chord"></select>
         </div>
         <div class="control-group">
@@ -218,9 +323,11 @@
       <div class="btn-group">
         <button id="flipH">Flip Horizontal</button>
         <button id="flipV">Flip Vertical</button>
-        <button id="toggleC">Only Chords</button>
+        <button id="toggleC">Show Chord Notes</button>
       </div>
     </div>
+    <p id="chordMessage" class="chord-message" role="status" aria-live="polite" hidden></p>
+    <div id="shapeLegend" class="shape-legend" aria-label="Chord shape colors" hidden></div>
     <div class="canvas-card">
       <canvas id="board" width="1300" height="350"></canvas>
     </div>
@@ -231,20 +338,22 @@
           tuning = ['E','A','D','G','B','E'],
           intervals = { Major:[0,2,4,5,7,9,11], Minor:[0,2,3,5,7,8,10],
                         'Major Pentatonic':[0,2,4,7,9], 'Minor Pentatonic':[0,3,5,7,10] },
-          shapes = { Major:['C','A','G','E','D'], Minor:['A (m)','E (m)','D (m)'] },
-          barreOffset = { C:3,A:0,G:3,E:0,D:2,'A (m)':0,'E (m)':0,'D (m)':2 },
-          barreStrings = { C:5,A:5,G:6,E:6,D:4,'A (m)':5,'E (m)':6,'D (m)':4 },
-          placements = {
-            C:[['B',2],['G',3],['D',4]],
-            A:[['B',3],['G',3],['D',3]],
-            G:[['E',4,'high'],['B',4],['E',4,'low'],['A',2]],
-            E:[['E',3,'low'],['A',3],['D',2]],
-            D:[['E',3,'high'],['G',3],['B',4]],
-            'D (m)':[ ['E',2,'high'],['G',3],['B',4] ],
-            'A (m)':[ ['D',3],['G',3],['B',2] ],
-            'E (m)':[ ['A',3],['D',3] ]
+          shapes = { Major:['C','A','G','E','D','O'], Minor:['A (m)','E (m)','D (m)','O'] },
+          shapeRoots = { C:['A',3], A:['A',0], G:['E',3], E:['E',0], D:['D',0] },
+          openChords = {
+            Major: {
+              C:[null,3,2,0,1,0], A:[null,0,2,2,2,0], G:[3,2,0,0,0,3],
+              E:[0,2,2,1,0,0], D:[null,null,0,2,3,2]
+            },
+            Minor: {
+              A:[null,0,2,2,1,0], E:[0,2,2,0,0,0], D:[null,null,0,2,3,1]
+            }
           };
-    let flipH=false, flipV=false, chordsOnly=false;
+    const shapeColors = {
+      C:'#e11d48', A:'#f97316', G:'#eab308', E:'#16a34a', D:'#2563eb', O:'#4c1d95',
+      'A (m)':'#7c3aed', 'E (m)':'#c026d3', 'D (m)':'#db2777'
+    };
+    let flipH=false, flipV=false, chordsOnly=false, showAllShapes=false;
     const $=id=>document.getElementById(id);
 
     function init(){
@@ -254,14 +363,16 @@
       ['key','scale','chord','frets'].forEach(id=>$(id).addEventListener('change',draw));
       $('flipH').onclick=()=>{ flipH=!flipH; draw(); };
       $('flipV').onclick=()=>{ flipV=!flipV; draw(); };
-      $('toggleC').onclick=()=>{ chordsOnly=!chordsOnly; $('toggleC').textContent = chordsOnly?'Show All':'Only Chords'; draw(); };
+      $('toggleC').onclick=()=>{ chordsOnly=!chordsOnly; $('toggleC').textContent = chordsOnly?'Show All':'Show Chord Notes'; draw(); };
+      $('toggleAll').onclick=()=>{ showAllShapes=!showAllShapes; draw(); };
       $('key').value='A'; $('scale').value='Major'; updateChords(); draw();
     }
 
     function updateChords(){
       const mode=$('scale').value;
       $('chord').innerHTML='';
-      shapes[mode==='Major'?'Major':'Minor'].forEach(s=>$('chord').add(new Option(s,s)));
+      const family=mode.startsWith('Major')?'Major':'Minor';
+      shapes[family].forEach(s=>$('chord').add(new Option(s,s)));
     }
 
     function getScale(key,mode){
@@ -285,19 +396,44 @@
       const c=$('board'),ctx=c.getContext('2d');
       const key=$('key').value, mode=$('scale').value, frets=+$('frets').value;
       const scale=getScale(key,mode), tri=(mode==='Major'||mode==='Minor')?[scale[0],scale[2],scale[4]]:[];
+      const family=mode.startsWith('Major')?'Major':'Minor';
+      const selectedShape=$('chord').value;
+      const availableShapes=shapes[family].filter(shape=>shape!=='O'||openChords[family][key]);
+      const visibleShapes=showAllShapes?availableShapes:[selectedShape];
+      const openUnavailable=showAllShapes?!openChords[family][key]:selectedShape==='O'&&!openChords[family][key];
+      $('chordMessage').hidden=!openUnavailable;
+      $('chordMessage').textContent=openUnavailable?"Can't be played in open":'';
+      $('shapeLegend').hidden=!showAllShapes;
+      $('shapeLegend').innerHTML=showAllShapes?visibleShapes.map(shape=>
+        `<span class="shape-legend-item"><span class="shape-legend-swatch" style="background:${shapeColors[shape]}"></span>${shape}</span>`
+      ).join(''):'';
       $('title').textContent=`${key} ${mode} Scale`;
       
       // Update button visual states
       $('flipH').classList.toggle('active', flipH);
       $('flipV').classList.toggle('active', flipV);
       $('toggleC').classList.toggle('active', chordsOnly);
+      $('toggleAll').classList.toggle('active', showAllShapes);
+      $('toggleAll').setAttribute('aria-pressed',String(showAllShapes));
 
       const ml=flipH?70:100, mr=flipH?100:70,
             fw=(c.width-ml-mr)/frets, sh=(c.height-50)/tuning.length;
       ctx.clearRect(0,0,c.width,c.height);
       drawFrets(ctx,ml,mr,frets,fw,c);
-      drawBarre(ctx,ml,mr,fw);
-      drawPlacements(ctx,ml,mr,fw,sh);
+      const shapeDraws=visibleShapes.flatMap(shape=>{
+        const color=shapeColors[shape];
+        return getShapePositions(shape,family,key,frets).map(f0=>({shape,color,f0}));
+      });
+      shapeDraws.forEach(({shape,color,f0})=>drawBarre(ctx,ml,mr,fw,shape,color,f0));
+      const markerGroups=new Map();
+      shapeDraws.forEach(({shape,color,f0})=>collectPlacements(markerGroups,ctx,ml,mr,fw,sh,shape,key,mode,f0,color,frets));
+      markerGroups.forEach(markers=>{
+        const spread=markers.length>1?Math.min(5,fw*0.12,sh*0.12):0;
+        markers.forEach((marker,index)=>{
+          const angle=2*Math.PI*index/markers.length;
+          drawPlacementMarker(ctx,marker.x+Math.cos(angle)*spread,marker.y+Math.sin(angle)*spread,fw,sh,marker.color);
+        });
+      });
       drawNotes(ctx,scale,tri,ml,mr,fw,sh,getMatrix(frets));
     }
 
@@ -404,54 +540,102 @@
       ctx.stroke();
     }
 
-    function drawBarre(ctx,ml,mr,fw){
-      const shape=$('chord').value;
-      const open = tuning[6-barreStrings[shape]];
-      let offset=barreOffset[shape] - (['D','D (m)'].includes(shape)?2:0);
-      let f0=findFret(open,$('key').value)-offset;
-      if(f0<1) f0+=12;
-      drawBarre.f0=f0;
+    function getBarreFret(shape,key){
+      if(shape==='O') return 0;
+      const template=shape.replace(' (m)','');
+      const [rootString,rootFret]=shapeRoots[template];
+      let f0=(notes.indexOf(key)-notes.indexOf(rootString)+12)%12-rootFret;
+      if(f0<0) f0+=12;
+      return f0;
+    }
+
+    function getShapePositions(shape,family,key,frets){
+      if(shape==='O') return [0];
+      const template=shape.replace(' (m)','');
+      const templateFrets=openChords[family][template].filter(fret=>fret>0);
+      const highestFret=Math.max(...templateFrets);
+      const baseFret=getBarreFret(shape,key);
+      const positions=[];
+      if(baseFret+highestFret<=frets) positions.push(baseFret);
+      const octaveFret=baseFret+12;
+      if(octaveFret+highestFret<=frets) positions.push(octaveFret);
+      return positions;
+    }
+
+    function drawBarre(ctx,ml,mr,fw,shape,color,f0){
+      if(f0===0||shape==='O') return;
       const x=flipH?ctx.canvas.width-mr-(f0*fw):ml+((f0-1)*fw);
       const h=ctx.canvas.height-50;
       ctx.save();
-      ctx.fillStyle='rgba(37, 99, 235, 0.08)'; 
+      ctx.globalAlpha=0.08;
+      ctx.fillStyle=color;
       ctx.fillRect(x,50,fw,h);
-      ctx.strokeStyle='rgba(37, 99, 235, 0.4)'; 
-      ctx.lineWidth=2;
-      ctx.setLineDash([4, 4]);
+      ctx.globalAlpha=0.8;
+      ctx.strokeStyle=color;
+      ctx.lineWidth=3;
+      ctx.setLineDash([5, 3]);
       ctx.strokeRect(x,50,fw,h);
       ctx.restore();
+      return f0;
     }
 
-    function drawPlacements(ctx,ml,mr,fw,sh){
-      const shape=$('chord').value;
-      (placements[shape]||[]).forEach(([str,st])=>{
-        const idx=tuning.indexOf(str);
+    function collectPlacements(groups,ctx,ml,mr,fw,sh,shape,key,mode,f0,color,frets){
+      if(shape==='O'){
+        const family=mode.startsWith('Major')?'Major':'Minor';
+        const fingering=openChords[family][key];
+        if(!fingering) return;
+        fingering.forEach((fret,stringIndex)=>{
+          if(!fret||fret>frets) return;
+          const i=flipV?tuning.length-1-stringIndex:stringIndex;
+          const y=50+i*sh+sh/2;
+          const x=flipH?ctx.canvas.width-mr-(fret-0.5)*fw:ml+(fret-0.5)*fw;
+          addPlacement(groups,`${i}:${fret}`,x,y,color);
+        });
+        return;
+      }
+      const family=mode.startsWith('Major')?'Major':'Minor';
+      const template=shape.replace(' (m)','');
+      (openChords[family][template]||[]).forEach((fret,stringIndex)=>{
+        if(fret===null||fret===0) return;
+        const idx=stringIndex;
         const i=flipV?tuning.length-1-idx:idx;
         const y=50+i*sh+sh/2;
-        const pos=drawBarre.f0+st-1;
+        const pos=f0+fret;
+        if(pos<1||pos>frets||pos===f0) return;
         const x=flipH?ctx.canvas.width-mr-(pos-0.5)*fw:ml+(pos-0.5)*fw;
-        const w=fw*0.8, h=sh;
-        
-        ctx.save();
-        ctx.fillStyle='rgba(37, 99, 235, 0.06)'; 
-        ctx.fillRect(x-w/2,y-h/2,w,h);
-        ctx.strokeStyle='rgba(37, 99, 235, 0.2)'; 
-        ctx.lineWidth=1.5;
-        ctx.setLineDash([3, 3]);
-        ctx.strokeRect(x-w/2,y-h/2,w,h);
-        ctx.restore();
-
-        ctx.beginPath(); 
-        ctx.arc(x,y,7,0,2*Math.PI); 
-        ctx.fillStyle='#2563EB'; 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-        ctx.shadowBlur = 4;
-        ctx.fill(); 
-        ctx.strokeStyle='#FFFFFF';
-        ctx.lineWidth=2;
-        ctx.stroke();
+        addPlacement(groups,`${i}:${pos}`,x,y,color);
       });
+    }
+
+    function addPlacement(groups,key,x,y,color){
+      if(!groups.has(key)) groups.set(key,[]);
+      groups.get(key).push({x,y,color});
+    }
+
+    function drawPlacementMarker(ctx,x,y,fw,sh,color){
+      const w=fw*0.8, h=sh;
+      ctx.save();
+      ctx.globalAlpha=0.06;
+      ctx.fillStyle=color;
+      ctx.fillRect(x-w/2,y-h/2,w,h);
+      ctx.globalAlpha=0.8;
+      ctx.strokeStyle=color;
+      ctx.lineWidth=2;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(x-w/2,y-h/2,w,h);
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x,y,7,0,2*Math.PI);
+      ctx.fillStyle=color;
+      ctx.shadowColor='rgba(0, 0, 0, 0.1)';
+      ctx.shadowBlur=4;
+      ctx.fill();
+      ctx.strokeStyle='#FFFFFF';
+      ctx.lineWidth=2;
+      ctx.stroke();
+      ctx.restore();
     }
 
     function drawNotes(ctx,scale,tri,ml,mr,fw,sh,matrix){
